@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body {
+        /* Everything is draggable now */
+        -webkit-app-region: drag;
+        margin: 0; padding: 0; background: transparent !important;
+        overflow: hidden; height: 100vh; width: 100vw;
+        display: flex; justify-content: center; align-items: center;
+    }
+    .glass {
+        display: flex; justify-content: center; align-items: center;
+        gap: 8px; background: rgba(30, 30, 30, 0.4);
+        padding: 15px; border-radius: 30px;
+    }
+    .eye {
+        width: 40px; height: 50px; background: white;
+        border-radius: 50%; position: relative; overflow: hidden;
+        border: 2px solid #222;
+    }
+    .pupil {
+        width: 14px; height: 14px; background: #000;
+        border-radius: 50%; position: absolute;
+        top: 18px; left: 13px;
+        transition: transform 0.1s ease-out;
+    }
+    /* Squint animation */
+    .blinking { height: 3px !important; transition: height 0.1s; }
+</style>
+</head>
+<body>
+    <div class="glass">
+        <div class="eye"><div class="pupil"></div></div>
+        <div class="eye"><div class="pupil"></div></div>
+    </div>
+
+<script>
+    const { ipcRenderer } = require('electron');
+    const pupils = document.querySelectorAll('.pupil');
+    const eyes = document.querySelectorAll('.eye');
+
+    // Auto-Blink Logic
+    function triggerBlink() {
+        eyes.forEach(e => e.classList.add('blinking'));
+        setTimeout(() => eyes.forEach(e => e.classList.remove('blinking')), 150);
+        
+        // Schedule next blink between 2 and 5 seconds
+        const nextBlink = Math.random() * 3000 + 2000;
+        setTimeout(triggerBlink, nextBlink);
+    }
+    triggerBlink(); // Start the loop
+
+    // Eye Tracking Logic
+    ipcRenderer.on('move-pupils', (event, data) => {
+        const { mouseX, mouseY, winX, winY } = data;
+        pupils.forEach((pupil) => {
+            const rect = pupil.parentElement.getBoundingClientRect();
+            const eyeGlobalX = winX + rect.left + (rect.width / 2);
+            const eyeGlobalY = winY + rect.top + (rect.height / 2);
+
+            const dx = mouseX - eyeGlobalX;
+            const dy = mouseY - eyeGlobalY;
+
+            const moveX = dx / 15; 
+            const moveY = dy / 15;
+
+            const maxLimit = 9;
+            const finalX = Math.max(-maxLimit, Math.min(maxLimit, moveX));
+            const finalY = Math.max(-maxLimit, Math.min(maxLimit, moveY));
+
+            pupil.style.transform = `translate(${finalX}px, ${finalY}px)`;
+        });
+    });
+</script>
+</body>
+</html>
