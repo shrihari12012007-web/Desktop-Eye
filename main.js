@@ -11,7 +11,8 @@ function createWindow() {
     });
 
     win.setBackgroundColor('#00000000');
-    win.loadFile('eyes.html');
+    // Updated to point to index.html to match GitHub Pages requirements
+    win.loadFile('index.html');
 
     setInterval(() => {
         const mouse = screen.getCursorScreenPoint();
