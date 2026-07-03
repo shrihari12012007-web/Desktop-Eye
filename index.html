@@ -3,7 +3,6 @@
 <head>
 <style>
     body {
-        /* Everything is draggable now */
         -webkit-app-region: drag;
         margin: 0; padding: 0; background: transparent !important;
         overflow: hidden; height: 100vh; width: 100vw;
@@ -12,12 +11,12 @@
     .glass {
         display: flex; justify-content: center; align-items: center;
         gap: 8px; background: rgba(30, 30, 30, 0.4);
-        padding: 15px; border-radius: 30px;
+        padding: 15px; border-radius: 30px; transition: 0.3s;
     }
     .eye {
         width: 40px; height: 50px; background: white;
         border-radius: 50%; position: relative; overflow: hidden;
-        border: 2px solid #222;
+        border: 2px solid #222; transition: 0.2s;
     }
     .pupil {
         width: 14px; height: 14px; background: #000;
@@ -25,12 +24,13 @@
         top: 18px; left: 13px;
         transition: transform 0.1s ease-out;
     }
-    /* Squint animation */
-    .blinking { height: 3px !important; transition: height 0.1s; }
+    /* States */
+    .blinking { height: 3px !important; }
+    .surprised { width: 55px !important; height: 65px !important; }
 </style>
 </head>
 <body>
-    <div class="glass">
+    <div class="glass" id="glass">
         <div class="eye"><div class="pupil"></div></div>
         <div class="eye"><div class="pupil"></div></div>
     </div>
@@ -39,39 +39,82 @@
     const { ipcRenderer } = require('electron');
     const pupils = document.querySelectorAll('.pupil');
     const eyes = document.querySelectorAll('.eye');
+    const glass = document.getElementById('glass');
 
-    // Auto-Blink Logic
     function triggerBlink() {
         eyes.forEach(e => e.classList.add('blinking'));
         setTimeout(() => eyes.forEach(e => e.classList.remove('blinking')), 150);
-        
-        // Schedule next blink between 2 and 5 seconds
-        const nextBlink = Math.random() * 3000 + 2000;
-        setTimeout(triggerBlink, nextBlink);
+        setTimeout(triggerBlink, Math.random() * 3000 + 2000);
     }
-    triggerBlink(); // Start the loop
+    triggerBlink();
 
-    // Eye Tracking Logic
+    let lastMouseX = 0, lastMouseY = 0;
     ipcRenderer.on('move-pupils', (event, data) => {
         const { mouseX, mouseY, winX, winY } = data;
+        
+        // Detect speed for "Surprised" emotion
+        const speed = Math.abs(mouseX - lastMouseX) + Math.abs(mouseY - lastMouseY);
+        if (speed > 50) {
+            eyes.forEach(e => e.classList.add('surprised'));
+            setTimeout(() => eyes.forEach(e => e.classList.remove('surprised')), 500);
+        }
+        lastMouseX = mouseX; lastMouseY = mouseY;
+
         pupils.forEach((pupil) => {
             const rect = pupil.parentElement.getBoundingClientRect();
             const eyeGlobalX = winX + rect.left + (rect.width / 2);
             const eyeGlobalY = winY + rect.top + (rect.height / 2);
-
-            const dx = mouseX - eyeGlobalX;
-            const dy = mouseY - eyeGlobalY;
-
-            const moveX = dx / 15; 
-            const moveY = dy / 15;
-
-            const maxLimit = 9;
-            const finalX = Math.max(-maxLimit, Math.min(maxLimit, moveX));
-            const finalY = Math.max(-maxLimit, Math.min(maxLimit, moveY));
-
-            pupil.style.transform = `translate(${finalX}px, ${finalY}px)`;
+            const dx = Math.max(-9, Math.min(9, (mouseX - eyeGlobalX) / 15));
+            const dy = Math.max(-9, Math.min(9, (mouseY - eyeGlobalY) / 15));
+            pupil.style.transform = `translate(${dx}px, ${dy}px)`;
         });
     });
+    // Inside your <script> tag
+async function loadModels() {
+    // This looks for the 'models' folder in the same directory as your index.html
+    const MODEL_URL = './models'; 
+    
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+    
+    console.log("Models loaded!");
+}
+
+loadModels();
 </script>
+<!-- Add this video tag (it can stay hidden) -->
+<video id="video" width="720" height="560" autoplay muted style="display:none;"></video>
+
+<script src="./node_modules/face-api.js/dist/face-api.min.js"></script>
+<script>
+  const video = document.getElementById('video');
+
+  async function startApp() {
+    // Load models from your local ./models folder
+    const MODEL_URL = './models';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+
+    // Start Webcam
+    const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+    video.srcObject = stream;
+  }
+
+  video.addEventListener('play', () => {
+    setInterval(async () => {
+      const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                                      .withFaceExpressions();
+      if (detections.length > 0) {
+        const expression = detections[0].expressions.asSortedArray()[0].expression;
+        console.log("Current Emotion:", expression);
+        // Add your logic here to trigger eye changes (e.g., if 'happy', smile!)
+      }
+    }, 1000);
+  });
+
+  startApp();
+  
+</script>
+
 </body>
 </html>

@@ -4,14 +4,13 @@ app.disableHardwareAcceleration();
 
 function createWindow() {
     const win = new BrowserWindow({
-        width: 160, height: 90,
+        width: 200, height: 120, // Slightly increased size to fit "surprised" state
         transparent: true, frame: false,
         alwaysOnTop: true, skipTaskbar: true,
         webPreferences: { nodeIntegration: true, contextIsolation: false }
     });
 
     win.setBackgroundColor('#00000000');
-    // Updated to point to index.html to match GitHub Pages requirements
     win.loadFile('index.html');
 
     setInterval(() => {
